@@ -1,0 +1,10 @@
+---
+Checks: >
+  -*,
+  clang-analyzer-*,
+  bugprone-*,
+  cert-*,
+  performance-*
+HeaderFilterRegex: 'esp-home-hub/(main|components)/'
+WarningsAsErrors: ''
+...

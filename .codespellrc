@@ -1,0 +1,4 @@
+[codespell]
+skip = build,managed_components,sdkconfig,sdkconfig.old,compile_commands.json,dependencies.lock
+ignore-words = codespell-ignore.txt
+check-hidden =
