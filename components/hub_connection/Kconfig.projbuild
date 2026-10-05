@@ -1,0 +1,15 @@
+menu "Hub connection"
+
+    config HUB_WIFI_SSID
+        string "Wi-Fi SSID"
+        default ""
+        help
+            SSID of the access point the station joins at boot.
+
+    config HUB_WIFI_PASSWORD
+        string "Wi-Fi password"
+        default ""
+        help
+            Password for HUB_WIFI_SSID. Leave empty for an open network.
+
+endmenu

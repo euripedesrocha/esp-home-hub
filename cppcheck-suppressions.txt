@@ -1,0 +1,6 @@
+*:*/idf/main/*
+*:*/managed_components/*
+// IP2STR is an ESP-IDF macro that expands to C casts.
+dangerousTypeCast:components/hub_connection/hub_connection.cpp
+// wifi_config_t is an ESP-IDF union; value initialization matches the IDF examples.
+UnionZeroInit:components/hub_connection/hub_connection.cpp

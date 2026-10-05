@@ -1,0 +1,5 @@
+dependencies:
+  idf:
+    version: ">=6.1"
+  espressif/yt8531:
+    version: "^0.2.0"
