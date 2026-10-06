@@ -6,6 +6,7 @@
 
 #include "hub_connection.hpp"
 
+#include <new>
 #include <system_error>
 
 #include "esp_event.h"
@@ -13,6 +14,7 @@
 #include "esp_netif.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "hub_system.hpp"
 #include "nvs_flash.h"
 #include "sdkconfig.h"
 
@@ -54,12 +56,17 @@ extern "C" void app_main(void) {
         config.password = CONFIG_HUB_WIFI_PASSWORD;
     }
     try {
+        hub_system system;
         hub_connection link(config);
         ESP_ERROR_CHECK(esp_event_handler_register(HUB_EVENT, ESP_EVENT_ANY_ID, &on_hub_connectivity, nullptr));
         ESP_ERROR_CHECK(link.start());
         vTaskSuspend(nullptr);
     } catch (const hub_connection::error &failure) {
         ESP_ERROR_CHECK(failure.code());
+    } catch (const hub_mdns::error &failure) {
+        ESP_ERROR_CHECK(failure.code());
+    } catch (const std::bad_alloc &) {
+        ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
     } catch (const std::system_error &) {
         ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
     }
