@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ESP Home Hub</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #18221d;
+        background: #f2f0e9;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(211, 229, 213, 0.9), transparent 38rem),
+          #f2f0e9;
+      }
+
+      main {
+        width: min(68rem, calc(100% - 2rem));
+        margin: 0 auto;
+        padding: 4rem 0;
+      }
+
+      header {
+        display: grid;
+        gap: 0.75rem;
+        margin-bottom: 2.5rem;
+      }
+
+      .eyebrow {
+        color: #337052;
+        font-size: 0.75rem;
+        font-weight: 750;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2.25rem, 6vw, 4.5rem);
+        font-weight: 680;
+        letter-spacing: -0.055em;
+        line-height: 0.95;
+      }
+
+      .intro {
+        max-width: 38rem;
+        margin: 0.5rem 0 0;
+        color: #536058;
+        font-size: 1.05rem;
+        line-height: 1.6;
+      }
+
+      .summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .summary h2 {
+        margin: 0;
+        font-size: 1.15rem;
+      }
+
+      #devices {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+        gap: 1rem;
+      }
+
+      article {
+        min-height: 11rem;
+        padding: 1.25rem;
+        border: 1px solid rgba(24, 34, 29, 0.1);
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, 0.78);
+        box-shadow: 0 1rem 2.5rem rgba(52, 66, 58, 0.06);
+      }
+
+      article h3 {
+        margin: 2rem 0 0.25rem;
+        font-size: 1.15rem;
+      }
+
+      article p {
+        margin: 0;
+        color: #69736d;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.35rem 0.6rem;
+        border-radius: 999px;
+        background: #efe5dd;
+        color: #7d4934;
+        font-size: 0.75rem;
+        font-weight: 700;
+      }
+
+      .status::before {
+        width: 0.45rem;
+        height: 0.45rem;
+        border-radius: 50%;
+        background: currentColor;
+        content: "";
+      }
+
+      .status.reachable {
+        background: #dcecdf;
+        color: #286141;
+      }
+
+      #message {
+        padding: 1rem 0;
+        color: #7d4934;
+      }
+
+      @media (max-width: 36rem) {
+        main {
+          padding-top: 2.5rem;
+        }
+
+        .summary {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="eyebrow">ESP Home Hub</span>
+        <h1 id="home-name">Your home</h1>
+        <p class="intro">This is the home we want to see.</p>
+      </header>
+      <section aria-labelledby="devices-heading">
+        <div class="summary">
+          <h2 id="devices-heading">Devices</h2>
+        </div>
+        <div id="devices" aria-live="polite"></div>
+        <p id="message">Loading the system view…</p>
+      </section>
+    </main>
+    <script>
+      function draw(system) {
+        document.querySelector("#home-name").textContent = system.name;
+
+        const devices = document.querySelector("#devices");
+        devices.replaceChildren(...system.devices.map((device) => {
+          const card = document.createElement("article");
+          const status = document.createElement("span");
+          status.className = `status${device.reachable ? " reachable" : ""}`;
+          status.textContent = device.reachable ? "On network" : "Not on network";
+
+          const name = document.createElement("h3");
+          name.textContent = device.name;
+
+          const details = document.createElement("p");
+          details.textContent = `${device.room} · ${device.kind}`;
+
+          card.append(status, name, details);
+          return card;
+        }));
+        document.querySelector("#message").hidden = true;
+      }
+
+      async function refresh() {
+        try {
+          const response = await fetch("/api/system", { cache: "no-store" });
+          if (!response.ok) throw new Error(response.status);
+          draw(await response.json());
+        } catch {
+          const message = document.querySelector("#message");
+          message.textContent = "The system view is temporarily unavailable.";
+          message.hidden = false;
+        }
+      }
+
+      refresh();
+      setInterval(refresh, 2000);
+    </script>
+  </body>
+</html>
