@@ -14,6 +14,7 @@
 #include "esp_netif.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "hub_mdns.hpp"
 #include "hub_system.hpp"
 #include "hub_web.hpp"
 #include "nvs_flash.h"
@@ -59,10 +60,12 @@ extern "C" void app_main(void) {
     try {
         hub_system system;
         hub_web web(system);
+        hub_mdns mdns;
         hub_connection link(config);
         ESP_ERROR_CHECK(esp_event_handler_register(HUB_EVENT, ESP_EVENT_ANY_ID, &on_hub_connectivity, nullptr));
         ESP_ERROR_CHECK(link.start());
         ESP_ERROR_CHECK(web.serve());
+        ESP_ERROR_CHECK(mdns.advertise());
         vTaskSuspend(nullptr);
     } catch (const hub_connection::error &failure) {
         ESP_ERROR_CHECK(failure.code());
