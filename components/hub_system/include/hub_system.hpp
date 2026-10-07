@@ -7,10 +7,14 @@
 #pragma once
 
 #include <cstdint>
+#include <exception>
 #include <mutex>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "esp_event.h"
+#include "hub_events.hpp"
 
 struct hub_device {
     std::string id;
@@ -56,13 +60,41 @@ public:
         invalid_model,
     };
 
-    hub_system();
+    class error : public std::exception {
+    public:
+        explicit error(esp_err_t code) noexcept
+            : failure(code) {}
+        esp_err_t code() const noexcept {
+            return failure;
+        }
+        const char *what() const noexcept override {
+            return esp_err_to_name(failure);
+        }
+
+    private:
+        esp_err_t failure;
+    };
+
+    explicit hub_system(hub_events &events);
+    ~hub_system();
+    hub_system(const hub_system &) = delete ("event handlers are registered with this object's address");
+    hub_system &operator=(const hub_system &) = delete ("event handlers are registered with this object's address");
 
     read_view read() const;
     std::string json() const;
     replace_result replace(std::string_view document);
 
 private:
+    enum class update_result : std::uint8_t {
+        success,
+        not_found,
+    };
+
+    static void on_reachability(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
+    update_result apply_reachability(std::string_view id, bool reachable);
+
+    hub_events &events;
+    esp_event_handler_instance_t reachability_handler = nullptr;
     mutable std::mutex guard_state;
     hub_system_definition definition;
 };
