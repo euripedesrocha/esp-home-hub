@@ -61,7 +61,7 @@ extern "C" void app_main(void) {
     try {
         hub_events events;
         hub_system system(events);
-        hub_web web(system);
+        hub_web web(system, events);
         hub_mdns mdns;
         hub_connection link(config);
         ESP_ERROR_CHECK(esp_event_handler_register(HUB_EVENT, ESP_EVENT_ANY_ID, &on_hub_connectivity, nullptr));

@@ -7,13 +7,14 @@
 #pragma once
 
 #include "esp_err.h"
+#include "hub_events.hpp"
 #include "hub_system.hpp"
 
 struct httpd_req;
 
 class hub_web {
 public:
-    explicit hub_web(hub_system &system);
+    hub_web(hub_system &system, hub_events &events);
     ~hub_web();
     hub_web(const hub_web &) = delete ("HTTP resources are owned by this object");
     hub_web &operator=(const hub_web &) = delete ("HTTP resources are owned by this object");
@@ -25,7 +26,9 @@ private:
     static esp_err_t get_root(httpd_req *request);
     static esp_err_t get_system(httpd_req *request);
     static esp_err_t post_system(httpd_req *request);
+    static esp_err_t post_reachability(httpd_req *request);
 
     hub_system &system;
+    hub_events &events;
     void *server = nullptr;
 };
