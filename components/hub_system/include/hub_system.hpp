@@ -16,14 +16,6 @@
 
 #include "hub_events.hpp"
 
-struct hub_reachability_event {
-    std::size_t id_size;
-    bool reachable;
-    char id[];
-};
-
-inline constexpr hub_topic hub_reachability_topic{"hub.device.reachability"};
-
 struct hub_device {
     std::string id;
     std::string name;
@@ -98,11 +90,11 @@ private:
         not_found,
     };
 
-    static void on_reachability(void *arg, esp_event_base_t event_base, std::int32_t event_id, void *event_data);
+    static void on_message(void *arg, esp_event_base_t event_base, std::int32_t event_id, void *event_data);
     update_result apply_reachability(std::string_view id, bool reachable);
 
     hub_events &events;
-    esp_event_handler_instance_t reachability_handler = nullptr;
+    esp_event_handler_instance_t message_handler = nullptr;
     mutable std::mutex guard_state;
     hub_system_definition definition;
 };

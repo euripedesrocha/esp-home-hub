@@ -17,6 +17,7 @@
 #include "hub_events.hpp"
 #include "hub_mdns.hpp"
 #include "hub_mqtt.hpp"
+#include "hub_mqtt_bridge.hpp"
 #include "hub_system.hpp"
 #include "hub_web.hpp"
 #include "nvs_flash.h"
@@ -89,7 +90,8 @@ extern "C" void app_main(void) {
         hub_system system(events);
         hub_web web(system, events);
         hub_mdns mdns;
-        hub_mqtt mqtt;
+        hub_mqtt_bridge mqtt_bridge(events);
+        hub_mqtt mqtt(&hub_mqtt_bridge::on_message, &mqtt_bridge);
         hub_connection link(config);
         network_services services{.mqtt = mqtt, .mdns = mdns};
         ESP_ERROR_CHECK(esp_event_handler_register(HUB_EVENT, ESP_EVENT_ANY_ID, &on_hub_connectivity, &services));

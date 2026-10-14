@@ -16,6 +16,15 @@ namespace {
 
 using json_value = nlohmann::json;
 constexpr auto *TAG = "hub-system";
+constexpr std::string_view device_topic_prefix = "hub/device/";
+constexpr std::string_view reachability_topic_suffix = "/reachability";
+constexpr hub_topic message_topic{"hub.message"};
+
+struct message_event {
+    std::size_t topic_size;
+    std::size_t payload_size;
+    std::byte data[];
+};
 
 bool read_text(const json_value &object, std::string_view key, std::string &destination) {
     const auto value = object.find(key);
@@ -28,6 +37,18 @@ bool read_text(const json_value &object, std::string_view key, std::string &dest
     }
     destination = text;
     return true;
+}
+
+std::string_view reachability_device_id(std::string_view topic) {
+    if (!topic.starts_with(device_topic_prefix) || !topic.ends_with(reachability_topic_suffix)) {
+        return {};
+    }
+    topic.remove_prefix(device_topic_prefix.size());
+    topic.remove_suffix(reachability_topic_suffix.size());
+    if (topic.empty() || topic.find('/') != std::string_view::npos) {
+        return {};
+    }
+    return topic;
 }
 
 }  // namespace
@@ -74,16 +95,16 @@ hub_system::hub_system(hub_events &source)
                    .reachable = false},
               },
       } {
-    auto registration = events.subscribe(hub_reachability_topic, &hub_system::on_reachability, this);
-    if (!registration) {
-        throw error(registration.error());
+    auto message = events.subscribe(message_topic, &hub_system::on_message, this);
+    if (!message) {
+        throw error(message.error());
     }
-    reachability_handler = *registration;
+    message_handler = *message;
 }
 
 hub_system::~hub_system() {
-    if (reachability_handler != nullptr) {
-        events.unsubscribe(hub_reachability_topic, reachability_handler);
+    if (message_handler != nullptr) {
+        events.unsubscribe(message_topic, message_handler);
     }
 }
 
@@ -166,14 +187,30 @@ hub_system::update_result hub_system::apply_reachability(std::string_view id, bo
     return update_result::success;
 }
 
-void hub_system::on_reachability(void *arg, esp_event_base_t event_base, std::int32_t event_id, void *event_data) {
-    if (event_base != HUB_EVENTS || event_id != hub_reachability_topic.event_id || event_data == nullptr) {
+void hub_system::on_message(void *arg, esp_event_base_t event_base, std::int32_t event_id, void *event_data) {
+    if (event_base != HUB_EVENTS || event_id != message_topic.event_id || event_data == nullptr) {
         return;
     }
-    auto *self = static_cast<hub_system *>(arg);
-    const auto *event = static_cast<const hub_reachability_event *>(event_data);
-    if (self->apply_reachability(std::string_view(event->id, event->id_size), event->reachable) ==
-        update_result::not_found) {
-        ESP_LOGW(TAG, "reachability update ignored for unknown device");
+
+    const auto *event = static_cast<const message_event *>(event_data);
+    const std::string_view topic(reinterpret_cast<const char *>(event->data), event->topic_size);
+    const std::string_view id = reachability_device_id(topic);
+    if (id.empty() || event->payload_size == 0) {
+        return;
+    }
+
+    try {
+        const std::string_view document(reinterpret_cast<const char *>(event->data + event->topic_size),
+                                        event->payload_size);
+        const json_value reachable = json_value::parse(document.begin(), document.end(), nullptr, false);
+        if (reachable.is_discarded() || !reachable.is_boolean()) {
+            ESP_LOGW(TAG, "Ignoring invalid reachability payload");
+            return;
+        }
+        if (static_cast<hub_system *>(arg)->apply_reachability(id, reachable.get<bool>()) == update_result::not_found) {
+            ESP_LOGW(TAG, "reachability update ignored for unknown device");
+        }
+    } catch (const std::bad_alloc &) {
+        ESP_LOGE(TAG, "Reachability payload allocation failed");
     }
 }
