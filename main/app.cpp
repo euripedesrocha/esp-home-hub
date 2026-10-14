@@ -88,7 +88,7 @@ extern "C" void app_main(void) {
     try {
         hub_events events;
         hub_system system(events);
-        hub_web web(system, events);
+        hub_web web(system);
         hub_mdns mdns;
         hub_mqtt_bridge mqtt_bridge(events);
         hub_mqtt mqtt(&hub_mqtt_bridge::on_message, &mqtt_bridge);

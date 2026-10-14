@@ -10,27 +10,17 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <expected>
-#include <limits>
-#include <memory>
 #include <new>
-#include <span>
 #include <string>
-#include <string_view>
 
 #include "esp_http_server.h"
 #include "esp_timer.h"
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wanalyzer-malloc-leak"
-#include "nlohmann/json.hpp"
-#pragma GCC diagnostic pop
 
 namespace {
 
 constexpr std::size_t MAX_BODY_SIZE = 4096;
 constexpr std::int64_t MAX_BODY_RECEIVE_TIME_US = 5'000'000;
-using json_value = nlohmann::json;
 
 template <typename value_type, std::size_t size>
 consteval std::array<char, size> embed_html(const value_type (&input)[size]) {
@@ -90,8 +80,8 @@ std::expected<std::string, esp_err_t> receive_body(httpd_req_t *request) {
 
 }  // namespace
 
-hub_web::hub_web(hub_system &model, hub_events &source)
-    : system(model), events(source) {}
+hub_web::hub_web(hub_system &model)
+    : system(model) {}
 
 hub_web::~hub_web() {
     stop();
@@ -128,21 +118,12 @@ esp_err_t hub_web::serve() {
         .handler = &hub_web::post_system,
         .user_ctx = this,
     };
-    const httpd_uri_t post_reachability_api = {
-        .uri = "/api/devices/reachability",
-        .method = HTTP_POST,
-        .handler = &hub_web::post_reachability,
-        .user_ctx = this,
-    };
     err = httpd_register_uri_handler(handle, &root);
     if (err == ESP_OK) {
         err = httpd_register_uri_handler(handle, &get_api);
     }
     if (err == ESP_OK) {
         err = httpd_register_uri_handler(handle, &post_api);
-    }
-    if (err == ESP_OK) {
-        err = httpd_register_uri_handler(handle, &post_reachability_api);
     }
     if (err != ESP_OK) {
         stop();
@@ -191,49 +172,4 @@ esp_err_t hub_web::post_system(httpd_req_t *request) {
     } catch (const std::bad_alloc &) {
         return httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
     }
-}
-
-esp_err_t hub_web::post_reachability(httpd_req_t *request) {
-    auto *self = static_cast<hub_web *>(request->user_ctx);
-    auto body = receive_body(request);
-    if (!body) {
-        return body.error();
-    }
-
-    try {
-        const json_value update = json_value::parse(body->begin(), body->end(), nullptr, false);
-        if (update.is_discarded() || !update.is_object() || update.size() != 2) {
-            return httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "Invalid reachability update");
-        }
-        const auto id = update.find("id");
-        const auto reachable = update.find("reachable");
-        if (id == update.end() || !id->is_string() || reachable == update.end() || !reachable->is_boolean()) {
-            return httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "Invalid reachability update");
-        }
-        const std::string_view device_id = id->get_ref<const std::string &>();
-        if (device_id.empty()) {
-            return httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "Invalid reachability update");
-        }
-        if (device_id.size() > std::numeric_limits<std::size_t>::max() - sizeof(hub_reachability_event)) {
-            return httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "Invalid reachability update");
-        }
-        const std::size_t event_size = sizeof(hub_reachability_event) + device_id.size();
-        const std::unique_ptr<std::byte[]> storage(new (std::nothrow) std::byte[event_size]{});
-        if (storage == nullptr) {
-            return httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "Reachability update unavailable");
-        }
-        auto *event = ::new (storage.get()) hub_reachability_event{
-            .id_size = device_id.size(),
-            .reachable = reachable->get<bool>(),
-        };
-        std::memcpy(event->id, device_id.data(), device_id.size());
-        if (self->events.publish(hub_reachability_topic, std::span<const std::byte>{storage.get(), event_size}) !=
-            ESP_OK) {
-            return httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "Reachability update unavailable");
-        }
-    } catch (const std::bad_alloc &) {
-        return httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
-    }
-    httpd_resp_set_status(request, "202 Accepted");
-    return httpd_resp_send(request, nullptr, 0);
 }
