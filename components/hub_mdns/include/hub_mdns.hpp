@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <exception>
 
 #include "esp_err.h"
@@ -34,7 +35,10 @@ public:
 
     esp_err_t advertise();
     esp_err_t withdraw();
+    esp_err_t advertise_mqtt(std::uint16_t port);
+    esp_err_t withdraw_mqtt();
 
 private:
-    bool advertised = false;
+    bool http_advertised = false;
+    bool mqtt_advertised = false;
 };

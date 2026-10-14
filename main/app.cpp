@@ -16,6 +16,7 @@
 #include "freertos/task.h"
 #include "hub_events.hpp"
 #include "hub_mdns.hpp"
+#include "hub_mqtt.hpp"
 #include "hub_system.hpp"
 #include "hub_web.hpp"
 #include "nvs_flash.h"
@@ -25,14 +26,39 @@ namespace {
 
 constexpr auto *TAG = "app";
 
+struct network_services {
+    hub_mqtt &mqtt;
+    hub_mdns &mdns;
+};
+
 void on_hub_connectivity(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
-    (void)arg;
-    (void)event_base;
+    if (event_base != HUB_EVENT || event_data == nullptr) {
+        return;
+    }
+    auto &services = *static_cast<network_services *>(arg);
     const auto *event = static_cast<const hub_event_connectivity_t *>(event_data);
     if (event_id == HUB_EVENT_CONNECTED) {
         ESP_LOGI(TAG, "HUB_EVENT_CONNECTED");
+        const esp_err_t start = services.mqtt.start();
+        if (start != ESP_OK) {
+            ESP_LOGE(TAG, "MQTT broker start failed: %s", esp_err_to_name(start));
+        } else {
+            const esp_err_t advertise = services.mdns.advertise_mqtt(services.mqtt.port());
+            if (advertise != ESP_OK) {
+                ESP_LOGE(TAG, "MQTT mDNS advertisement failed: %s", esp_err_to_name(advertise));
+                services.mqtt.stop();
+            }
+        }
     } else if (event_id == HUB_EVENT_DISCONNECTED) {
         ESP_LOGW(TAG, "HUB_EVENT_DISCONNECTED");
+        const esp_err_t withdraw = services.mdns.withdraw_mqtt();
+        if (withdraw != ESP_OK) {
+            ESP_LOGE(TAG, "MQTT mDNS withdrawal failed: %s", esp_err_to_name(withdraw));
+        }
+        const esp_err_t stop = services.mqtt.stop();
+        if (stop != ESP_OK) {
+            ESP_LOGE(TAG, "MQTT broker stop failed: %s", esp_err_to_name(stop));
+        }
     }
     ESP_LOGI(TAG, "link connected: %s", event->connected ? "yes" : "no");
 }
@@ -63,8 +89,10 @@ extern "C" void app_main(void) {
         hub_system system(events);
         hub_web web(system, events);
         hub_mdns mdns;
+        hub_mqtt mqtt;
         hub_connection link(config);
-        ESP_ERROR_CHECK(esp_event_handler_register(HUB_EVENT, ESP_EVENT_ANY_ID, &on_hub_connectivity, nullptr));
+        network_services services{.mqtt = mqtt, .mdns = mdns};
+        ESP_ERROR_CHECK(esp_event_handler_register(HUB_EVENT, ESP_EVENT_ANY_ID, &on_hub_connectivity, &services));
         ESP_ERROR_CHECK(link.start());
         ESP_ERROR_CHECK(web.serve());
         ESP_ERROR_CHECK(mdns.advertise());

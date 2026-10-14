@@ -37,26 +37,51 @@ hub_mdns::~hub_mdns() {
 }
 
 esp_err_t hub_mdns::advertise() {
-    if (advertised) {
+    if (http_advertised) {
         return ESP_OK;
     }
 
     const esp_err_t err = mdns_service_add(nullptr, "_http", "_tcp", 80, nullptr, 0);
     if (err == ESP_OK) {
-        advertised = true;
+        http_advertised = true;
         ESP_LOGI(TAG, "System view: http://esp-home-hub.local/");
     }
     return err;
 }
 
 esp_err_t hub_mdns::withdraw() {
-    if (!advertised) {
+    if (!http_advertised) {
         return ESP_OK;
     }
 
     const esp_err_t err = mdns_service_remove("_http", "_tcp");
     if (err == ESP_OK) {
-        advertised = false;
+        http_advertised = false;
+    }
+    return err;
+}
+
+esp_err_t hub_mdns::advertise_mqtt(std::uint16_t port) {
+    if (mqtt_advertised) {
+        return ESP_OK;
+    }
+
+    const esp_err_t err = mdns_service_add(nullptr, "_mqtt", "_tcp", port, nullptr, 0);
+    if (err == ESP_OK) {
+        mqtt_advertised = true;
+        ESP_LOGI(TAG, "MQTT: mqtt://esp-home-hub.local:%u", port);
+    }
+    return err;
+}
+
+esp_err_t hub_mdns::withdraw_mqtt() {
+    if (!mqtt_advertised) {
+        return ESP_OK;
+    }
+
+    const esp_err_t err = mdns_service_remove("_mqtt", "_tcp");
+    if (err == ESP_OK) {
+        mqtt_advertised = false;
     }
     return err;
 }

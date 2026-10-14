@@ -1,0 +1,13 @@
+menu "Hub MQTT"
+
+config HUB_MQTT_PORT
+    int "Broker listener port"
+    range 1 65535
+    default 1883
+
+config HUB_MQTT_TASK_STACK_SIZE
+    int "Broker task stack size"
+    range 2048 65536
+    default 8192
+
+endmenu
