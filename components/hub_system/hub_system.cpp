@@ -74,7 +74,7 @@ hub_system::hub_system(hub_events &source)
                    .reachable = false},
               },
       } {
-    const auto registration = events.register_handler(hub_event_id::reachability, &hub_system::on_reachability, this);
+    auto registration = events.subscribe(hub_reachability_topic, &hub_system::on_reachability, this);
     if (!registration) {
         throw error(registration.error());
     }
@@ -83,7 +83,7 @@ hub_system::hub_system(hub_events &source)
 
 hub_system::~hub_system() {
     if (reachability_handler != nullptr) {
-        events.unregister_handler(hub_event_id::reachability, reachability_handler);
+        events.unsubscribe(hub_reachability_topic, reachability_handler);
     }
 }
 
@@ -166,13 +166,12 @@ hub_system::update_result hub_system::apply_reachability(std::string_view id, bo
     return update_result::success;
 }
 
-void hub_system::on_reachability(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
-    if (event_base != HUB_EVENTS || event_id != std::to_underlying(hub_event_id::reachability) ||
-        event_data == nullptr) {
+void hub_system::on_reachability(void *arg, esp_event_base_t event_base, std::int32_t event_id, void *event_data) {
+    if (event_base != HUB_EVENTS || event_id != hub_reachability_topic.event_id || event_data == nullptr) {
         return;
     }
     auto *self = static_cast<hub_system *>(arg);
-    const auto *event = static_cast<const hub_reachability_event_t *>(event_data);
+    const auto *event = static_cast<const hub_reachability_event *>(event_data);
     if (self->apply_reachability(std::string_view(event->id, event->id_size), event->reachable) ==
         update_result::not_found) {
         ESP_LOGW(TAG, "reachability update ignored for unknown device");

@@ -6,20 +6,16 @@
 
 #pragma once
 
-#include <cstdint>
+#include <cstddef>
 #include <expected>
 #include <exception>
-#include <string_view>
+#include <span>
 
 #include "esp_err.h"
 #include "esp_event.h"
-#include "hub_events_types.h"
+#include "hub_topic.hpp"
 
 ESP_EVENT_DECLARE_BASE(HUB_EVENTS);
-
-enum class hub_event_id : int32_t {
-    reachability,
-};
 
 class hub_events {
 public:
@@ -43,11 +39,11 @@ public:
     hub_events(const hub_events &) = delete ("event loop resources are owned by this object");
     hub_events &operator=(const hub_events &) = delete ("event loop resources are owned by this object");
 
-    std::expected<esp_event_handler_instance_t, esp_err_t> register_handler(hub_event_id event,
-                                                                            esp_event_handler_t handler, void *arg);
-    esp_err_t unregister_handler(hub_event_id event, esp_event_handler_instance_t instance);
-    esp_err_t publish_reachability(std::string_view id, bool reachable) const;
+    std::expected<esp_event_handler_instance_t, esp_err_t> subscribe(hub_topic topic, esp_event_handler_t handler,
+                                                                     void *arg);
+    esp_err_t unsubscribe(hub_topic topic, esp_event_handler_instance_t instance) noexcept;
+    esp_err_t publish(hub_topic topic, std::span<const std::byte> event) const noexcept;
 
 private:
-    esp_event_loop_handle_t event_loop = nullptr;
+    void *event_loop = nullptr;
 };

@@ -6,13 +6,7 @@
 
 #include "hub_events.hpp"
 
-#include <cstddef>
-#include <cstring>
-#include <limits>
-#include <memory>
-#include <new>
-#include <utility>
-
+#include "esp_event.h"
 #include "freertos/FreeRTOS.h"
 
 ESP_EVENT_DEFINE_BASE(HUB_EVENTS);
@@ -25,48 +19,37 @@ hub_events::hub_events() {
         .task_stack_size = 4096,
         .task_core_id = tskNO_AFFINITY,
     };
-    const esp_err_t err = esp_event_loop_create(&config, &event_loop);
+    esp_event_loop_handle_t handle = nullptr;
+    const esp_err_t err = esp_event_loop_create(&config, &handle);
     if (err != ESP_OK) {
         throw error(err);
     }
+    event_loop = handle;
 }
 
 hub_events::~hub_events() {
     if (event_loop != nullptr) {
-        esp_event_loop_delete(event_loop);
+        esp_event_loop_delete(static_cast<esp_event_loop_handle_t>(event_loop));
     }
 }
 
-std::expected<esp_event_handler_instance_t, esp_err_t>
-hub_events::register_handler(hub_event_id event, esp_event_handler_t handler, void *arg) {
+std::expected<esp_event_handler_instance_t, esp_err_t> hub_events::subscribe(hub_topic topic,
+                                                                             esp_event_handler_t handler, void *arg) {
     esp_event_handler_instance_t instance = nullptr;
-    const esp_err_t err = esp_event_handler_instance_register_with(event_loop, HUB_EVENTS, std::to_underlying(event),
-                                                                   handler, arg, &instance);
+    const esp_err_t err = esp_event_handler_instance_register_with(static_cast<esp_event_loop_handle_t>(event_loop),
+                                                                   HUB_EVENTS, topic.event_id, handler, arg, &instance);
     if (err != ESP_OK) {
         return std::unexpected(err);
     }
     return instance;
 }
 
-esp_err_t hub_events::unregister_handler(hub_event_id event, esp_event_handler_instance_t instance) {
-    return esp_event_handler_instance_unregister_with(event_loop, HUB_EVENTS, std::to_underlying(event), instance);
+esp_err_t hub_events::unsubscribe(hub_topic topic, esp_event_handler_instance_t instance) noexcept {
+    return esp_event_handler_instance_unregister_with(static_cast<esp_event_loop_handle_t>(event_loop), HUB_EVENTS,
+                                                      topic.event_id, instance);
 }
 
-esp_err_t hub_events::publish_reachability(std::string_view id, bool reachable) const {
-    if (id.empty() || id.size() > std::numeric_limits<std::size_t>::max() - sizeof(hub_reachability_event_t)) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    const std::size_t event_size = sizeof(hub_reachability_event_t) + id.size();
-    const std::unique_ptr<std::byte[]> storage(new (std::nothrow) std::byte[event_size]{});
-    if (storage == nullptr) {
-        return ESP_ERR_NO_MEM;
-    }
-    auto *event = ::new (storage.get()) hub_reachability_event_t{
-        .id_size = id.size(),
-        .reachable = reachable,
-    };
-    std::memcpy(event->id, id.data(), id.size());
-    return esp_event_post_to(event_loop, HUB_EVENTS, std::to_underlying(hub_event_id::reachability), event, event_size,
-                             0);
+esp_err_t hub_events::publish(hub_topic topic, std::span<const std::byte> event) const noexcept {
+    return esp_event_post_to(static_cast<esp_event_loop_handle_t>(event_loop), HUB_EVENTS, topic.event_id, event.data(),
+                             event.size(), 0);
 }

@@ -10,9 +10,14 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <expected>
+#include <limits>
+#include <memory>
 #include <new>
+#include <span>
 #include <string>
+#include <string_view>
 
 #include "esp_http_server.h"
 #include "esp_timer.h"
@@ -209,7 +214,21 @@ esp_err_t hub_web::post_reachability(httpd_req_t *request) {
         if (device_id.empty()) {
             return httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "Invalid reachability update");
         }
-        if (self->events.publish_reachability(device_id, reachable->get<bool>()) != ESP_OK) {
+        if (device_id.size() > std::numeric_limits<std::size_t>::max() - sizeof(hub_reachability_event)) {
+            return httpd_resp_send_err(request, HTTPD_400_BAD_REQUEST, "Invalid reachability update");
+        }
+        const std::size_t event_size = sizeof(hub_reachability_event) + device_id.size();
+        const std::unique_ptr<std::byte[]> storage(new (std::nothrow) std::byte[event_size]{});
+        if (storage == nullptr) {
+            return httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "Reachability update unavailable");
+        }
+        auto *event = ::new (storage.get()) hub_reachability_event{
+            .id_size = device_id.size(),
+            .reachable = reachable->get<bool>(),
+        };
+        std::memcpy(event->id, device_id.data(), device_id.size());
+        if (self->events.publish(hub_reachability_topic, std::span<const std::byte>{storage.get(), event_size}) !=
+            ESP_OK) {
             return httpd_resp_send_err(request, HTTPD_500_INTERNAL_SERVER_ERROR, "Reachability update unavailable");
         }
     } catch (const std::bad_alloc &) {

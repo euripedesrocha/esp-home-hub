@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <mutex>
@@ -13,8 +14,15 @@
 #include <string_view>
 #include <vector>
 
-#include "esp_event.h"
 #include "hub_events.hpp"
+
+struct hub_reachability_event {
+    std::size_t id_size;
+    bool reachable;
+    char id[];
+};
+
+inline constexpr hub_topic hub_reachability_topic{"hub.device.reachability"};
 
 struct hub_device {
     std::string id;
@@ -90,7 +98,7 @@ private:
         not_found,
     };
 
-    static void on_reachability(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
+    static void on_reachability(void *arg, esp_event_base_t event_base, std::int32_t event_id, void *event_data);
     update_result apply_reachability(std::string_view id, bool reachable);
 
     hub_events &events;
