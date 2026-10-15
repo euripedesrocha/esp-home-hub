@@ -28,7 +28,7 @@ hub_mdns::hub_mdns() {
         if (initialized) {
             mdns_free();
         }
-        throw error(err);
+        throw hub_error(err);
     }
 }
 

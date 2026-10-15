@@ -419,19 +419,19 @@ hub_connection::hub_connection(const config &options)
     if (esp_err_t err = esp_event_handler_instance_register(ETH_EVENT, ESP_EVENT_ANY_ID, &hub_connection::on_eth_event,
                                                             this, &eth_handler);
         err != ESP_OK) {
-        throw error(err);
+        throw hub_error(err);
     }
     if (esp_err_t err = esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED,
                                                             &hub_connection::on_wifi_event, this, &wifi_handler);
         err != ESP_OK) {
         unregister_handlers();
-        throw error(err);
+        throw hub_error(err);
     }
     if (esp_err_t err = esp_event_handler_instance_register(IP_EVENT, ESP_EVENT_ANY_ID, &hub_connection::on_ip_event,
                                                             this, &ip_handler);
         err != ESP_OK) {
         unregister_handlers();
-        throw error(err);
+        throw hub_error(err);
     }
 }
 

@@ -7,15 +7,14 @@
 #pragma once
 
 #include <cstdint>
-#include <exception>
 #include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
 
-#include "esp_err.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "hub_error.hpp"
 
 ESP_EVENT_DECLARE_BASE(HUB_EVENT);
 
@@ -40,21 +39,6 @@ public:
         std::optional<std::string_view> password = std::nullopt;
         interface preferred = interface::ethernet;
         int sta_max_attempts = 3;
-    };
-
-    class error : public std::exception {
-    public:
-        explicit error(esp_err_t code) noexcept
-            : failure(code) {}
-        esp_err_t code() const noexcept {
-            return failure;
-        }
-        const char *what() const noexcept override {
-            return esp_err_to_name(failure);
-        }
-
-    private:
-        esp_err_t failure;
     };
 
     explicit hub_connection(const config &options);

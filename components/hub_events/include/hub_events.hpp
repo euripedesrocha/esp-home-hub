@@ -8,32 +8,17 @@
 
 #include <cstddef>
 #include <expected>
-#include <exception>
 #include <span>
 
 #include "esp_err.h"
 #include "esp_event.h"
+#include "hub_error.hpp"
 #include "hub_topic.hpp"
 
 ESP_EVENT_DECLARE_BASE(HUB_EVENTS);
 
 class hub_events {
 public:
-    class error : public std::exception {
-    public:
-        explicit error(esp_err_t code) noexcept
-            : failure(code) {}
-        esp_err_t code() const noexcept {
-            return failure;
-        }
-        const char *what() const noexcept override {
-            return esp_err_to_name(failure);
-        }
-
-    private:
-        esp_err_t failure;
-    };
-
     hub_events();
     ~hub_events();
     hub_events(const hub_events &) = delete ("event loop resources are owned by this object");

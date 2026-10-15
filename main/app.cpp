@@ -14,6 +14,7 @@
 #include "esp_netif.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "hub_error.hpp"
 #include "hub_events.hpp"
 #include "hub_mdns.hpp"
 #include "hub_mqtt.hpp"
@@ -105,17 +106,7 @@ extern "C" void app_main(void) {
         ESP_ERROR_CHECK(web.serve());
         ESP_ERROR_CHECK(mdns.advertise());
         vTaskSuspend(nullptr);
-    } catch (const hub_connection::error &failure) {
-        ESP_ERROR_CHECK(failure.code());
-    } catch (const hub_mdns::error &failure) {
-        ESP_ERROR_CHECK(failure.code());
-    } catch (const hub_system::error &failure) {
-        ESP_ERROR_CHECK(failure.code());
-    } catch (const hub_events::error &failure) {
-        ESP_ERROR_CHECK(failure.code());
-    } catch (const hub_thread::error &failure) {
-        ESP_ERROR_CHECK(failure.code());
-    } catch (const hub_thread_bridge::error &failure) {
+    } catch (const hub_error &failure) {
         ESP_ERROR_CHECK(failure.code());
     } catch (const std::bad_alloc &) {
         ESP_ERROR_CHECK(ESP_ERR_NO_MEM);

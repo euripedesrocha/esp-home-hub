@@ -97,7 +97,7 @@ hub_system::hub_system(hub_events &source)
       } {
     auto message = events.subscribe(message_topic, &hub_system::on_message, this);
     if (!message) {
-        throw error(message.error());
+        throw hub_error(message.error());
     }
     message_handler = *message;
 }

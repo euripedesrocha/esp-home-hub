@@ -22,7 +22,7 @@ hub_events::hub_events() {
     esp_event_loop_handle_t handle = nullptr;
     const esp_err_t err = esp_event_loop_create(&config, &handle);
     if (err != ESP_OK) {
-        throw error(err);
+        throw hub_error(err);
     }
     event_loop = handle;
 }

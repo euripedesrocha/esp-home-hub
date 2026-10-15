@@ -30,7 +30,7 @@ hub_thread::hub_thread() {
     };
     const esp_err_t err = esp_vfs_eventfd_register(&eventfd_config);
     if (err != ESP_OK) {
-        throw error(err);
+        throw hub_error(err);
     }
 }
 
