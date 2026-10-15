@@ -19,6 +19,8 @@
 #include "hub_mqtt.hpp"
 #include "hub_mqtt_bridge.hpp"
 #include "hub_system.hpp"
+#include "hub_thread.hpp"
+#include "hub_thread_bridge.hpp"
 #include "hub_web.hpp"
 #include "nvs_flash.h"
 #include "sdkconfig.h"
@@ -96,6 +98,10 @@ extern "C" void app_main(void) {
         network_services services{.mqtt = mqtt, .mdns = mdns};
         ESP_ERROR_CHECK(esp_event_handler_register(HUB_EVENT, ESP_EVENT_ANY_ID, &on_hub_connectivity, &services));
         ESP_ERROR_CHECK(link.start());
+        hub_thread thread;
+        ESP_ERROR_CHECK(thread.start());
+        hub_thread_bridge thread_bridge(events);
+        ESP_ERROR_CHECK(thread_bridge.serve());
         ESP_ERROR_CHECK(web.serve());
         ESP_ERROR_CHECK(mdns.advertise());
         vTaskSuspend(nullptr);
@@ -106,6 +112,10 @@ extern "C" void app_main(void) {
     } catch (const hub_system::error &failure) {
         ESP_ERROR_CHECK(failure.code());
     } catch (const hub_events::error &failure) {
+        ESP_ERROR_CHECK(failure.code());
+    } catch (const hub_thread::error &failure) {
+        ESP_ERROR_CHECK(failure.code());
+    } catch (const hub_thread_bridge::error &failure) {
         ESP_ERROR_CHECK(failure.code());
     } catch (const std::bad_alloc &) {
         ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
