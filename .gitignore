@@ -3,6 +3,6 @@ sdkconfig
 sdkconfig.old
 **/dependencies.lock
 **/managed_components/
-.cache/
+**/.cache/
 *.pyc
 .DS_Store
